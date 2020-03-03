@@ -80,8 +80,7 @@ def force_length_tendon(lt):
     :return ft: normalized tension produced by tendon
     """
     # WRITE CODE HERE
-    lts = 1 # slack length of tendon (SE)
-    # ft = 0 # normalized tension produced by tendon
+    lts = 1  # slack length of tendon (SE)
 
     if lt < lts:
         return 0
