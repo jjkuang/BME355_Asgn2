@@ -1,4 +1,4 @@
-import collections
+import collections.abc
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
@@ -45,6 +45,20 @@ class HillTypeMuscle:
         return self.f0M * force_length_tendon(self.norm_tendon_length(total_length, norm_muscle_length))
 
 
+def damped_equilibrium(a, lm, lt, beta, vm):
+    """
+    :param vm: muscle (contractile element) velocity)
+    :return: force-velocity scale factor
+    """
+    alpha = 90
+    f0m = HillTypeMuscle.f0M
+    f_lm = force_length_muscle(lm)
+    f_vm = force_velocity_muscle(vm)
+    f_lp = force_length_parallel(lm)
+    f_lt = force_length_tendon(lt)
+    return f0m * (a * f_lm * f_vm + f_lp + beta*vm) * np.cos(alpha) - f0m*f_lt
+
+
 def get_velocity(a, lm, lt):
     """
     :param a: activation (between 0 and 1)
@@ -52,17 +66,27 @@ def get_velocity(a, lm, lt):
     :param lt: normalized length of tendon (series elastic element)
     :return: normalized lengthening velocity of muscle (contractile element)
     """
-    beta = 0.1 # damping coefficient (see damped model in Millard et al.)
+    beta = 0.1  # damping coefficient (see damped model in Millard et al.)
 
-    # WRITE CODE HERE TO CALCULATE VELOCITY
+    # WRITE CODE HERE TO CALCULATE VELOCITY`
+    out_0 = np.array([a, lm, lt, beta, 1])
+    vnorm = fsolve(damped_equilibrium, out_0, args=(a, lm, lt, beta))
+    return vnorm
 
 
 def force_length_tendon(lt):
     """
     :param lt: normalized length of tendon (series elastic element)
-    :return: normalized tension produced by tendon
+    :return ft: normalized tension produced by tendon
     """
     # WRITE CODE HERE
+    lts = 1 # slack length of tendon (SE)
+    # ft = 0 # normalized tension produced by tendon
+
+    if lt < lts:
+        return 0
+    else:
+        return (10 * (lt - lts)) + (240 * (lt - lts)**2)
 
 
 def force_length_parallel(lm):
@@ -71,6 +95,12 @@ def force_length_parallel(lm):
     :return: normalized force produced by parallel elastic element
     """
     # WRITE CODE HERE
+    lpes = 1  # slack length of PE
+
+    if lm < lpes:
+        return 0
+    else:
+        return (3 * (lm - lpes)**2) / (.6 + (lm - lpes))
 
 
 def plot_curves():
@@ -141,7 +171,7 @@ class Regression():
         return self.ridge.predict(self._get_features(x))
 
     def _get_features(self, x):
-        if not isinstance(x, collections.Sized):
+        if not isinstance(x, collections.abc.Sized):
             x = [x]
 
         phi = np.zeros((len(x), len(self.basis_functions)))
@@ -220,5 +250,11 @@ def force_velocity_muscle(vm):
     :return: force-velocity scale factor
     """
     return np.maximum(0, force_velocity_regression.eval(vm))
+
+
+
+
+
+
 
 
