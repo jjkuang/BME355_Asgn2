@@ -54,6 +54,40 @@ def dynamics(x, soleus, tibialis, control):
     """
 
     # WRITE CODE HERE TO IMPLEMENT THE MODEL
+    f_sM = soleus.f0M
+    f_taM = tibialis.f0M
+    d_s = 0.05
+    d_ta = 0.03
+    tau_s = f_sM * d_s * soleus.get_force(soleus.norm_tendon_length(soleus_length(x[0]), x[2]), x[2])[0]
+    tau_ta = f_taM * d_ta * tibialis.get_force(tibialis.norm_tendon_length(tibialis_length(x[0]), x[3]), x[3])[0]
+    a_s = 0.05
+    a_ta = 0.4
+
+    f_ext = 0
+    d_ext = 0
+
+    i_ankle = 90
+
+    xdot = []
+
+    xdot_1 = x[1]
+    # f_ext*d_ext*np.cos(x[0] - np.pi/2)
+    xdot_2 = ((tau_s - tau_ta + gravity_moment(x[0]))/i_ankle)
+    xdot_3 = get_velocity(a_s, x[2], soleus.norm_tendon_length(soleus_length(x[0]),x[2]))
+    # print(xdot_3)
+    # xdot_4 = get_velocity(a_ta, x[3], tibialis.norm_tendon_length(tibialis_length(x[0]),x[3]))
+    # print(xdot_4)
+
+    xdot.append(xdot_1)
+    # xdot.append(xdot_2)
+    # xdot.append(30)
+
+    # xdot.append(xdot_3)
+    # xdot.append(xdot_4)
+    xdot.append(30)
+    xdot.append(30)
+    xdot.append(30)
+    return (xdot)
 
 
 def simulate(control, T):
@@ -72,6 +106,7 @@ def simulate(control, T):
         return dynamics(x, soleus, tibialis, control)
 
     sol = solve_ivp(f, [0, T], [np.pi/2, 0, 1, 1], rtol=1e-5, atol=1e-8)
+    print(sol)
     time = sol.t
     theta = sol.y[0,:]
     soleus_norm_length_muscle = sol.y[2,:]
@@ -82,8 +117,8 @@ def simulate(control, T):
     soleus_moment = []
     tibialis_moment = []
     for th, ls, lt in zip(theta, soleus_norm_length_muscle, tibialis_norm_length_muscle):
-        soleus_moment.append(soleus_moment_arm * soleus.get_force(soleus_length(th), ls))
-        tibialis_moment.append(-tibialis_moment_arm * tibialis.get_force(tibialis_length(th), lt))
+        soleus_moment.append(np.array([soleus_moment_arm]) * soleus.get_force(soleus_length(th), ls))
+        tibialis_moment.append(np.array([-tibialis_moment_arm]) * tibialis.get_force(tibialis_length(th), lt))
 
     plt.figure()
     plt.subplot(2,1,1)
@@ -99,4 +134,6 @@ def simulate(control, T):
     plt.tight_layout()
     plt.show()
 
+
+simulate(False, 5)
 

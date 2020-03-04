@@ -1,10 +1,10 @@
-import collections.abc
+import collections
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
 from sklearn.linear_model import Ridge
 from scipy.special import expit
-
+from scipy.integrate import solve_ivp
 
 class HillTypeMuscle:
     """
@@ -45,18 +45,18 @@ class HillTypeMuscle:
         return self.f0M * force_length_tendon(self.norm_tendon_length(total_length, norm_muscle_length))
 
 
-def damped_equilibrium(a, lm, lt, beta, vm):
+def damped_equilibrium(vm, *musc_arg):
     """
     :param vm: muscle (contractile element) velocity)
     :return: force-velocity scale factor
     """
-    alpha = 90
-    f0m = HillTypeMuscle.f0M
+    alpha = 0
+    a, lm, lt, beta = musc_arg
     f_lm = force_length_muscle(lm)
     f_vm = force_velocity_muscle(vm)
     f_lp = force_length_parallel(lm)
     f_lt = force_length_tendon(lt)
-    return f0m * (a * f_lm * f_vm + f_lp + beta*vm) * np.cos(alpha) - f0m*f_lt
+    return (((a * f_lm * f_vm) + f_lp + (beta*vm)) * np.cos(alpha)) - f_lt
 
 
 def get_velocity(a, lm, lt):
@@ -69,8 +69,8 @@ def get_velocity(a, lm, lt):
     beta = 0.1  # damping coefficient (see damped model in Millard et al.)
 
     # WRITE CODE HERE TO CALCULATE VELOCITY`
-    out_0 = np.array([a, lm, lt, beta, 1])
-    vnorm = fsolve(damped_equilibrium, out_0, args=(a, lm, lt, beta))
+    vnorm0 = 0
+    vnorm = fsolve(damped_equilibrium, vnorm0, args=(a, lm, lt, beta))
     return vnorm
 
 
@@ -83,13 +83,16 @@ def force_length_tendon(lt):
     lts = 1  # slack length of tendon (SE)
     t_norm = []
 
+    if type(lt) is int or type(lt) is float or type(lt) is np.float64:
+        lt = np.array([lt])
+
     for i in range(0,len(lt)):
         if lt[i] < lts:
             t_norm.append(0)
         else:
             t_norm.append((10 * (lt[i] - lts)) + (240 * (lt[i] - lts)**2))
 
-    return np.array(t_norm)
+    return (t_norm)
 
 
 def force_length_parallel(lm):
@@ -101,13 +104,16 @@ def force_length_parallel(lm):
     lpes = 1  # slack length of PE
     f_norm = []
 
+    if type(lm) is int or type(lm) is float or type(lm) is np.float64:
+        lm = np.array([lm])
+
     for i in range(0,len(lm)):
         if lm[i] < lpes:
             f_norm.append(0)
         else:
             f_norm.append((3 * (lm[i] - lpes)**2) / (.6 + (lm[i] - lpes)))
 
-    return np.array(f_norm)
+    return (f_norm)
 
 
 def plot_curves():
@@ -387,14 +393,16 @@ def get_muscle_force_length_regression():
         [70.40247678,    49.64705882]
     ])
 
-    max_tension = max(data[:,1])
-    length_idx = np.argmax(data[:,1])
-    length_max_tension = data[:,0][length_idx]
+    length = data[:,0]
+    tension = data[:,1]
+    max_tension = max(tension)
+    length_idx = np.argmax(tension)
+    length_max_tension = length[length_idx]
     norm_length = data[:,0]/length_max_tension
     norm_tension = data[:,1]/max_tension
 
-    centres = np.arange(0, 1.5, .05)
-    width = .05
+    centres = np.arange(min(norm_length)+0.1, max(norm_length), .2)
+    width = .15
     result = Regression(norm_length, norm_tension, centres, width, .1, sigmoids=False)
 
     return result
@@ -405,7 +413,7 @@ force_velocity_regression = get_muscle_force_velocity_regression()
 
 def force_length_muscle(lm):
     """
-    :param lm: muscle (contracile element) length
+    :param lm: muscle (contractile element) length
     :return: force-length scale factor
     """
     return force_length_regression.eval(lm)
@@ -419,8 +427,57 @@ def force_velocity_muscle(vm):
     return np.maximum(0, force_velocity_regression.eval(vm))
 
 
+# Question 1
 plot_curves()
-# get_velocity(1,1,1.01)
+
+# Question 2
+print(get_velocity(1,1,1.01))
+
+# Question 3
+f0M = 100
+rml = 0.3
+rtl = 0.1
+total_length = rml + rtl
+muscle = HillTypeMuscle(f0M, rml, rtl)
+
+# Simulate isometric contraction w MT unit at resting length (lm_norm = lt_norm = 1)
+# Simulate for 2 s, w lm_norm = 1, a = 0 (t < 0.5), a = 1 o/w
+# Plot length of CE and force produced by muscle
+
+t = np.arange(0,2,0.05)
+lm_norm = 1
+lt_norm = 1
+ce_force = []
+
+def f(t,x):
+    if t < 0.5:
+        a = 0
+        # f_m = muscle.get_force(total_length, x)
+    else:
+        a = 1
+
+        # f_lm = force_length_muscle(x)
+        # f_vm = force_velocity_muscle(vnorm)
+        # f_pe = force_length_parallel(np.array([x]))
+        # f_m = f0M * (a * f_lm * f_vm + f_pe)
+
+    vnorm = get_velocity(a, x, lt_norm)
+    return vnorm
+
+
+sol = solve_ivp(f, [0, 2], [1], max_step=.05)
+# put sol into get_force
+# print(sol)
+# plt.subplot(1,2,2)
+# plt.plot(t, )
+# plt.xlabel('Time (s)')
+# plt.ylabel('CE Force (N)')
+plt.subplot(1,2,1)
+plt.plot(sol.t, sol.y.T)
+plt.ylabel('CE Length (m)')
+plt.tight_layout()
+plt.show()
+
 
 
 
