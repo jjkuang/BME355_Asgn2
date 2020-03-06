@@ -44,6 +44,23 @@ def gravity_moment(theta):
     return mass * g * centre_of_mass_distance * np.sin(theta - np.pi / 2)
 
 
+def set_activation(th):
+    '''
+    :param th: ankle angle
+    :return: [a_ta, a_s], activation constants for TA and soleus, respectively
+    '''
+    if th > np.pi/2:
+        a_ta = ((1/0.06)*th - 26.1799)
+        a_s = 0.01
+    elif th < np.pi/2:
+        a_s = (-5 * th + 5*np.pi/2)
+        a_ta = 0.01
+    else:
+        a_ta = 0.01
+        a_s = 0.01
+
+    return [a_ta, a_s]
+
 def dynamics(x, soleus, tibialis, control):
     """
     :param x: state vector (ankle angle, angular velocity, soleus normalized CE length, TA normalized CE length)
@@ -53,7 +70,37 @@ def dynamics(x, soleus, tibialis, control):
     :return: derivative of state vector
     """
 
-    # WRITE CODE HERE TO IMPLEMENT THE MODEL
+    # Muscle moment arms
+    d_s = 0.05
+    d_ta = 0.03
+
+    # Muscle torques
+    tau_s = d_s * soleus.get_force(soleus_length(x[0]), x[2])
+    tau_ta = d_ta * tibialis.get_force(tibialis_length(x[0]), x[3])
+    i_ankle = 90  # Inertia about the ankle
+
+    # Activation constant
+    if not control:
+        a_s = 0.05
+        a_ta = 0.4
+    else:
+        # Question 5: The control law can set the activation of each muscle
+        # as a function of the system’s state variables
+        a_ta = set_activation(x[0])[0]
+        a_s = set_activation(x[0])[1]
+
+    xdot = []
+    xdot_1 = x[1]
+    xdot_2 = ((tau_s - tau_ta + gravity_moment(x[0]))/i_ankle)
+    xdot_3 = get_velocity(a_s, x[2], soleus.norm_tendon_length(soleus_length(x[0]),x[2]))
+    xdot_4 = get_velocity(a_ta, x[3], tibialis.norm_tendon_length(tibialis_length(x[0]),x[3]))
+
+    xdot.append(xdot_1)
+    xdot.append(xdot_2)
+    xdot.append(xdot_3)
+    xdot.append(xdot_4)
+
+    return (xdot)
 
 
 def simulate(control, T):
@@ -88,8 +135,11 @@ def simulate(control, T):
     plt.figure()
     plt.subplot(2,1,1)
     plt.plot(time, sol.y[0,:])
+    plt.xlabel('Time (s)')
     plt.ylabel('Body angle (rad)')
+    plt.title('Postural stablity body angle simulation over 10 seconds, controlled')
     plt.subplot(2,1,2)
+    plt.title('Simulation of muscle torque produced by the soleus, TA, and gravity over 10 seconds, controlled')
     plt.plot(time, soleus_moment, 'r')
     plt.plot(time, tibialis_moment, 'g')
     plt.plot(time, gravity_moment(sol.y[0,:]), 'k')
@@ -100,3 +150,11 @@ def simulate(control, T):
     plt.show()
 
 
+########################################################################################################################
+if __name__ == "__main__":
+
+    # Question 4
+    simulate(False, 5)
+
+    # Question 5
+    simulate(True, 10)
