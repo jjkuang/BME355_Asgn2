@@ -50,14 +50,14 @@ def set_activation(th):
     :return: [a_ta, a_s], activation constants for TA and soleus, respectively
     '''
     if th > np.pi/2:
-        a_ta = ((1/0.06)*th - 26.1799)
-        a_s = 0.01
+        a_ta = 2*((1/0.06)*th - 26.1799)
+        a_s = 0.0004
     elif th < np.pi/2:
-        a_s = (-5 * th + 5*np.pi/2)
-        a_ta = 0.01
+        a_s = 0.7 * (-5*th + 5*np.pi/2)
+        a_ta = 0.1
     else:
-        a_ta = 0.01
-        a_s = 0.01
+        a_ta = 0.0001
+        a_s = 0.0001
 
     return [a_ta, a_s]
 
@@ -89,6 +89,8 @@ def dynamics(x, soleus, tibialis, control):
         a_ta = set_activation(x[0])[0]
         a_s = set_activation(x[0])[1]
 
+    # a_tas.append(a_ta)
+    # a_ss.append(a_s)
     xdot = []
     xdot_1 = x[1]
     xdot_2 = ((tau_s - tau_ta + gravity_moment(x[0]))/i_ankle)
@@ -118,7 +120,7 @@ def simulate(control, T):
     def f(t, x):
         return dynamics(x, soleus, tibialis, control)
 
-    sol = solve_ivp(f, [0, T], [np.pi/2, 0, 1, 1], rtol=1e-5, atol=1e-8)
+    sol = solve_ivp(f, [0, T], [np.pi/2+0.01, 0, 1, 1], rtol=1e-5, atol=1e-8)
     time = sol.t
     theta = sol.y[0,:]
     soleus_norm_length_muscle = sol.y[2,:]
@@ -151,7 +153,7 @@ def simulate(control, T):
 if __name__ == "__main__":
 
     # Question 4
-    simulate(False, 5)
+    # simulate(False, 5)
 
     # Question 5
     simulate(True, 10)
